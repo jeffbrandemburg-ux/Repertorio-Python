@@ -1,0 +1,435 @@
+# Consumo de APIs Públicas com Python — IBGE e Banco Central
+
+## Sobre o projeto
+
+Este projeto foi desenvolvido como atividade prática de Python com o objetivo de trabalhar com **consumo de APIs públicas**, tratamento de dados e armazenamento de informações em diferentes formatos.
+
+Foram utilizadas fontes oficiais de dados do:
+
+* **IBGE — Instituto Brasileiro de Geografia e Estatística**
+* **Banco Central do Brasil (BCB)**
+
+O projeto utiliza a biblioteca `requests` para realizar requisições HTTP e `pandas` para transformar, tratar e analisar os dados.
+
+---
+
+## Objetivos
+
+O projeto tem como principais objetivos:
+
+1. Consumir dados de uma API pública do IBGE.
+2. Consumir dados de um endpoint público do Banco Central.
+3. Transformar os dados recebidos em `DataFrames`.
+4. Exibir e analisar os dados obtidos.
+5. Salvar os dados do Banco Central em formato CSV.
+6. Realizar tratamentos e validações nos dados.
+7. Salvar os dados tratados em CSV e Parquet.
+8. Compreender as diferenças entre API e requisições sem API.
+9. Compreender a importância e os riscos do web scraping.
+
+---
+
+# APIs utilizadas
+
+## IBGE
+
+Foi utilizada a API de localidades do IBGE:
+
+`https://servicodados.ibge.gov.br/api/v1/localidades/municipios`
+
+Essa API fornece informações sobre os municípios brasileiros.
+
+No projeto são extraídas informações como:
+
+* ID do município;
+* nome do município;
+* ID da microrregião;
+* nome da microrregião;
+* ID da mesorregião;
+* nome da mesorregião.
+
+Os dados recebidos em JSON são transformados em um `DataFrame` utilizando o Pandas.
+
+---
+
+## Banco Central do Brasil
+
+Para o Banco Central foi utilizada uma série do **Sistema Gerenciador de Séries Temporais (SGS)**.
+
+Endpoint:
+
+`https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados`
+
+A série utilizada corresponde ao **dólar americano (venda)**.
+
+O período consultado é de:
+
+* Início: 01/01/2025
+* Final: 31/12/2025
+
+O resultado é recebido em formato JSON e convertido para um `DataFrame`.
+
+> O exemplo utilizado no material de aula consulta dados de Transações Pix por Município. Para esta atividade foi utilizada uma fonte diferente, conforme solicitado no enunciado.
+
+---
+
+# Tecnologias utilizadas
+
+O projeto foi desenvolvido em Python utilizando:
+
+### Python
+
+Linguagem utilizada para realizar as requisições, manipular os dados e gerar os arquivos.
+
+### Requests
+
+Biblioteca utilizada para realizar requisições HTTP às APIs.
+
+Exemplo:
+
+```python
+response = requests.get(
+    BCB_URL,
+    params=PARAMS,
+    timeout=60
+)
+```
+
+### Pandas
+
+Biblioteca utilizada para transformar os dados recebidos em `DataFrames`, realizar tratamentos e exportar os resultados.
+
+Exemplo:
+
+```python
+df_bcb = pd.DataFrame(response.json())
+```
+
+### PyArrow
+
+Biblioteca necessária para salvar os dados no formato Parquet.
+
+Instalação:
+
+```bash
+pip install pyarrow
+```
+
+---
+
+# Funcionamento do programa
+
+O funcionamento básico do programa segue este fluxo:
+
+```text
+API
+ ↓
+Requisição HTTP
+ ↓
+Resposta JSON
+ ↓
+DataFrame
+ ↓
+Tratamento dos dados
+ ↓
+Validação
+ ↓
+CSV / Parquet
+```
+
+---
+
+# Tratamento dos dados
+
+Depois que os dados do Banco Central são carregados, são realizados alguns tratamentos.
+
+## 1. Conversão da data
+
+A coluna `data` é convertida para o formato de data do Pandas:
+
+```python
+df_bcb["data"] = pd.to_datetime(
+    df_bcb["data"],
+    dayfirst=True,
+    errors="coerce"
+)
+```
+
+Isso permite trabalhar corretamente com datas e realizar análises posteriores.
+
+---
+
+## 2. Conversão do valor
+
+A coluna `valor` é convertida para um tipo numérico:
+
+```python
+df_bcb["valor"] = pd.to_numeric(
+    df_bcb["valor"],
+    errors="coerce"
+)
+```
+
+Dessa forma, os valores podem ser utilizados em cálculos e análises estatísticas.
+
+---
+
+## 3. Remoção de valores ausentes
+
+Registros que não possuem data ou valor são removidos:
+
+```python
+df_bcb = df_bcb.dropna(
+    subset=["data", "valor"]
+)
+```
+
+---
+
+## 4. Remoção de duplicidades
+
+Também são removidos registros duplicados:
+
+```python
+df_bcb = df_bcb.drop_duplicates()
+```
+
+---
+
+## 5. Renomeação da coluna
+
+A coluna `valor` recebe um nome mais descritivo:
+
+```python
+df_bcb = df_bcb.rename(
+    columns={
+        "valor": "dolar_venda_brl"
+    }
+)
+```
+
+Isso facilita a compreensão do significado da informação.
+
+---
+
+# Validação dos dados
+
+Após o tratamento, o programa verifica a qualidade dos dados.
+
+### Tipos das colunas
+
+```python
+print(df_bcb.dtypes)
+```
+
+Permite verificar se as colunas possuem os tipos esperados.
+
+### Valores nulos
+
+```python
+print(df_bcb.isnull().sum())
+```
+
+Permite verificar se ainda existem valores ausentes.
+
+### Duplicidades
+
+```python
+print(df_bcb.duplicated().sum())
+```
+
+Verifica se existem registros repetidos.
+
+### Estatísticas
+
+```python
+print(df_bcb["dolar_venda_brl"].describe())
+```
+
+Apresenta estatísticas básicas dos valores, como média, mínimo, máximo e quartis.
+
+---
+
+# Arquivos gerados
+
+Ao executar o programa, os seguintes arquivos são criados:
+
+```text
+projeto/
+│
+├── pratique_ibge_bcb.py
+├── bcb_tabela.csv
+├── dados_tratados.csv
+├── dados_tratados.parquet
+│
+└── data/
+    └── ibge_municipios.csv
+```
+
+## bcb_tabela.csv
+
+Contém os dados originalmente recebidos do Banco Central antes dos tratamentos.
+
+## dados_tratados.csv
+
+Contém os dados do Banco Central depois dos tratamentos e validações.
+
+## dados_tratados.parquet
+
+Contém o mesmo conjunto de dados tratado, porém armazenado no formato Parquet.
+
+## ibge_municipios.csv
+
+Contém os dados de municípios obtidos através da API do IBGE.
+
+---
+
+# API x requisição sem API
+
+Uma **API (Application Programming Interface)** fornece uma interface estruturada para que programas possam acessar dados ou serviços.
+
+Normalmente, APIs retornam dados em formatos estruturados, como:
+
+* JSON;
+* XML;
+* outros formatos específicos.
+
+Uma requisição **sem API** pode acessar diretamente uma página HTML, arquivo ou outro recurso disponível na internet.
+
+Um exemplo é o download direto de um arquivo `.xls` do IBGE:
+
+```text
+Servidor do IBGE
+       ↓
+Arquivo XLS
+       ↓
+requests
+       ↓
+Arquivo no computador
+```
+
+Quando uma API oficial está disponível e fornece os dados necessários, geralmente ela é a opção mais adequada, pois oferece uma estrutura própria para integração entre sistemas.
+
+---
+
+# Web scraping
+
+**Web scraping** é uma técnica utilizada para coletar automaticamente informações disponíveis em páginas da internet.
+
+Pode ser útil no ambiente profissional para:
+
+* pesquisa de informações;
+* acompanhamento de preços;
+* monitoramento de páginas;
+* coleta de informações públicas;
+* análise de dados;
+* automatização de tarefas repetitivas.
+
+Entretanto, o web scraping deve ser realizado de maneira responsável.
+
+---
+
+# Riscos legais e éticos
+
+Alguns dos principais riscos são:
+
+### Termos de uso
+
+Um site pode estabelecer regras sobre como seus dados podem ser acessados e utilizados.
+
+### Direitos autorais
+
+Nem toda informação encontrada na internet pode ser livremente copiada ou redistribuída.
+
+### LGPD
+
+Quando existem dados pessoais envolvidos, é necessário observar a **Lei Geral de Proteção de Dados (LGPD)** e seus princípios.
+
+### Sobrecarga do servidor
+
+Uma quantidade excessiva de requisições pode prejudicar o funcionamento de um site.
+
+---
+
+#  Medidas para reduzir riscos
+
+Duas medidas práticas são:
+
+1. Verificar os termos de uso, regras de acesso e políticas do site antes de realizar a coleta.
+2. Coletar somente os dados necessários, evitar dados pessoais desnecessários e controlar a quantidade de requisições realizadas.
+
+Quando existir uma API oficial, também é recomendável dar preferência a ela em vez de realizar scraping diretamente das páginas.
+
+---
+
+# Como executar no PyCharm
+
+## 1. Instalar Python
+
+Tenha o Python instalado no computador.
+
+## 2. Abrir o projeto
+
+Abra a pasta do projeto no PyCharm.
+
+## 3. Instalar as bibliotecas
+
+No terminal do PyCharm:
+
+```bash
+pip install requests pandas pyarrow
+```
+
+## 4. Executar o programa
+
+Abra:
+
+```text
+pratique_ibge_bcb.py
+```
+
+e execute o arquivo pelo PyCharm.
+
+---
+
+# Resultado esperado
+
+Durante a execução, o programa apresenta:
+
+* informações sobre a API do IBGE;
+* primeiras linhas dos dados do IBGE;
+* informações sobre a API do Banco Central;
+* primeiras linhas dos dados do BCB;
+* quantidade de registros;
+* tipos das colunas;
+* quantidade de valores nulos;
+* quantidade de duplicidades;
+* estatísticas básicas;
+* localização dos arquivos gerados.
+
+Ao final, os dados estarão disponíveis para análise nos formatos:
+
+```text
+CSV
+Parquet
+```
+
+---
+
+#  Conclusão
+
+A atividade demonstra na prática como Python pode ser utilizado para **consumir dados públicos, transformar informações recebidas por APIs, realizar tratamento e validação e armazenar os resultados para utilização posterior**.
+
+O projeto também demonstra que APIs são uma alternativa importante para integração de sistemas, principalmente quando existe uma interface oficial e estruturada para acesso aos dados.
+
+Além disso, o estudo de web scraping mostra que a coleta automatizada de informações deve considerar não apenas aspectos técnicos, mas também **termos de uso, direitos autorais, privacidade, LGPD e boas práticas de utilização dos recursos disponíveis na internet**.
+
+---
+
+## Projeto acadêmico
+
+**Tema:** Consumo de APIs Públicas com Python
+**Fontes:** IBGE e Banco Central do Brasil
+**Linguagem:** Python
+**Bibliotecas principais:** Requests e Pandas
+**Formato de dados:** JSON, CSV e Parquet
